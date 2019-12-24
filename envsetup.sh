@@ -1665,11 +1665,11 @@ source_vendorsetup
 addcompletions
 
 # check and set ccache path on envsetup
-if [ -z ${CCACHE_EXEC} ]; then
-    ccache_path=$(which ccache)
+if [ -z ${USE_CCACHE} ]; then
+    ccache_path=prebuilts/tools-ancient/linux-x86/bin/ccache
     if [ ! -z "$ccache_path" ]; then
-        export CCACHE_EXEC="$ccache_path"
-        echo "ccache found and CCACHE_EXEC has been set to : $ccache_path"
+        export USE_CCACHE="$ccache_path"
+        echo "ccache found and CCACHE has been set to : $ccache_path"
     else
         echo "ccache not found/installed!"
     fi
