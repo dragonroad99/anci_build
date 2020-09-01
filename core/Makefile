@@ -4320,6 +4320,7 @@ ifneq ($(ANCIENT_BUILD),)
 else
     $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := false
 endif
+$(INTERNAL_OTA_PACKAGE_TARGET): backuptool := true
 
 $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) \
 	    build/make/tools/releasetools/ota_from_target_files
