@@ -184,6 +184,10 @@ A/B OTA specific options
   --incremental_block_based <boolean>
       Enable block based incremental updates
       Disabled by default.
+
+  --backup <boolean>
+      Enable or disable the execution of backuptool.sh.
+      Disabled by default.
 """
 
 from __future__ import print_function
@@ -245,6 +249,8 @@ OPTIONS.skip_postinstall = False
 OPTIONS.retrofit_dynamic_partitions = False
 OPTIONS.skip_compatibility_check = False
 OPTIONS.output_metadata_path = None
+OPTIONS.backuptool = False
+
 OPTIONS.override_device = 'auto'
 
 
@@ -1368,8 +1374,6 @@ else if get_stage("%(bcb_dev)s") == "3/3" then
   # Dump fingerprints
   script.Print("Target: {}".format(target_info.fingerprint))
 
-  script.AppendExtra("ifelse(is_mounted(\"/system\"), unmount(\"/system\"));")
-
   android_version = target_info.GetBuildProp("ro.build.version.release")
   build_id = target_info.GetBuildProp("ro.build.id")
   build_date = target_info.GetBuildProp("ro.ancient.build_date")
@@ -1392,6 +1396,14 @@ else if get_stage("%(bcb_dev)s") == "3/3" then
   script.UnpackPackageDir("install", "/tmp/install")
   script.SetPermissionsRecursive("/tmp/install", 0, 0, 0o755, 0o644, None, None)
   script.SetPermissionsRecursive("/tmp/install/bin", 0, 0, 0o755, 0o755, None, None)
+
+  if target_info.get("system_root_image") == "true":
+    sysmount = "/"
+  else:
+    sysmount = "/system"
+
+  if OPTIONS.backuptool:
+    script.RunBackup("backup", sysmount)
 
   # All other partitions as well as the data wipe use 10% of the progress, and
   # the update of the system partition takes the remaining progress.
@@ -1423,6 +1435,10 @@ else if get_stage("%(bcb_dev)s") == "3/3" then
   common.ZipWriteStr(output_zip, "boot.img", boot_img.data)
 
   device_specific.FullOTA_PostValidate()
+
+  if OPTIONS.backuptool:
+    script.ShowProgress(0.02, 10)
+    script.RunBackup("restore", sysmount)
 
   script.WriteRawImage("/boot", "boot.img")
 
@@ -2856,6 +2872,8 @@ def main(argv):
       OPTIONS.extracted_input = a
     elif o == "--skip_postinstall":
       OPTIONS.skip_postinstall = True
+    elif o in ("--backup"):
+      OPTIONS.backuptool = bool(a.lower() == 'true')
     elif o == "--retrofit_dynamic_partitions":
       OPTIONS.retrofit_dynamic_partitions = True
     elif o == "--skip_compatibility_check":
@@ -2902,6 +2920,7 @@ def main(argv):
                                  "output_metadata_path=",
                                  "override_device=",
                                  "incremental_block_based=",
+                                 "backup=",
                              ], extra_option_handler=option_handler)
 
   if len(args) != 2:

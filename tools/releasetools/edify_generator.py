@@ -164,6 +164,12 @@ class EdifyGenerator(object):
            ");")
     self.script.append(self.WordWrap(cmd))
 
+  def RunBackup(self, command, mount_point):
+    if self.fstab:
+      p = self.fstab[mount_point]
+    self.script.append(('run_program("/tmp/install/bin/backuptool.sh", "%s", "%s", "%s");' % (
+        command, p.device, p.fs_type)))
+
   def ShowProgress(self, frac, dur):
     """Update the progress bar, advancing it over 'frac' over the next
     'dur' seconds.  'dur' may be zero to advance it via SetProgress
@@ -240,6 +246,17 @@ class EdifyGenerator(object):
           p.fs_type, common.PARTITION_TYPES[p.fs_type], p.device,
           p.mount_point, mount_flags))
       self.mounts.add(p.mount_point)
+
+  def UnpackPackageDir(self, src, dst):
+    """Unpack a given directory from the OTA package into the given
+    destination directory."""
+    self.script.append('package_extract_dir("%s", "%s");' % (src, dst))
+
+  def Unmount(self, mount_point):
+    """Unmount the partition with the given mount_point."""
+    if mount_point in self.mounts:
+      self.mounts.remove(mount_point)
+      self.script.append('unmount("%s");' % (mount_point,))
 
   def UnpackPackageDir(self, src, dst):
     """Unpack a given directory from the OTA package into the given
@@ -350,17 +367,21 @@ class EdifyGenerator(object):
   def SetPermissionsRecursive(self, fn, uid, gid, dmode, fmode, selabel,
                               capabilities):
     """Recursively set path ownership and permissions."""
-    if capabilities is None:
-      capabilities = "0x0"
-    cmd = 'set_metadata_recursive("%s", "uid", %d, "gid", %d, ' \
-        '"dmode", 0%o, "fmode", 0%o' \
-        % (fn, uid, gid, dmode, fmode)
-    if not fn.startswith("/tmp"):
-      cmd += ', "capabilities", "%s"' % capabilities
-    if selabel is not None:
-      cmd += ', "selabel", "%s"' % selabel
-    cmd += ');'
-    self.script.append(cmd)
+    if not self.info.get("use_set_metadata", False):
+      self.script.append('set_perm_recursive(%d, %d, 0%o, 0%o, "%s");'
+                         % (uid, gid, dmode, fmode, fn))
+    else:
+      if capabilities is None:
+        capabilities = "0x0"
+      cmd = 'set_metadata_recursive("%s", "uid", %d, "gid", %d, ' \
+          '"dmode", 0%o, "fmode", 0%o' \
+          % (fn, uid, gid, dmode, fmode)
+      if not fn.startswith("/tmp"):
+        cmd += ', "capabilities", "%s"' % capabilities
+      if selabel is not None:
+        cmd += ', "selabel", "%s"' % selabel
+      cmd += ');'
+      self.script.append(cmd)
 
   def WriteRawImage(self, mount_point, fn, mapfn=None):
     """Write the given package file into the partition for the given
